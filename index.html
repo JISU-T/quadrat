@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>방형구법 실감형 시뮬레이션</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@400;600;700;800&display=swap');
+        body { font-family: 'Pretendard', sans-serif; overflow-x: hidden; touch-action: none; }
+        .active-view { display: flex; flex-direction: column; }
+        .hidden-view { display: none; }
+        
+        /* Field Styling */
+        #field-container {
+            width: 100%;
+            height: 320px;
+            position: relative;
+            background: #f1f8ed;
+            overflow: hidden;
+            border-radius: 1.5rem;
+            border: 2px solid #e2e8f0;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .plant {
+            position: absolute;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Quadrat Overlay */
+        #quadrat {
+            position: absolute;
+            width: 130px; 
+            height: 130px;
+            border: 3px solid #ef4444;
+            background: rgba(239, 68, 68, 0.05);
+            z-index: 50;
+            display: grid;
+            grid-template-columns: repeat(10, 1fr);
+            grid-template-rows: repeat(10, 1fr);
+            transition: border-color 0.3s, background-color 0.3s;
+            cursor: pointer;
+            touch-action: none;
+        }
+        
+        #quadrat.locked {
+            border: 3px solid #3b82f6;
+            background: rgba(59, 130, 246, 0.1);
+        }
+
+        .quadrat-grid-line {
+            border: 0.1px solid rgba(0, 0, 0, 0.1);
+        }
+
+        .lock-indicator {
+            position: absolute;
+            top: -25px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #ef4444;
+            color: white;
+            font-size: 10px;
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-weight: bold;
+            pointer-events: none;
+        }
+
+        #quadrat.locked .lock-indicator {
+            background: #3b82f6;
+            content: '고정됨';
+        }
+
+        .formula-box {
+            @apply bg-slate-50 p-2 rounded-lg text-[11px] font-mono mt-1 text-slate-600 border border-slate-100;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 antialiased">
+
+    <!-- Screen 1: Title -->
+    <section id="screen-1" class="active-view min-h-screen items-center justify-center p-6 text-center">
+        <div class="mb-10">
+            <div class="inline-block p-5 bg-green-600 rounded-[2.5rem] mb-8 shadow-2xl rotate-3">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A2 2 0 013 15.485V5.415a2 2 0 011.161-1.815l7-3.5a2 2 0 011.678 0l7 3.5A2 2 0 0121 5.415v10.07a2 2 0 01-1.553 1.944L15 19.5" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l6-3m0 0l-6-3m6 3V4" />
+                </svg>
+            </div>
+            <h1 class="text-4xl font-extrabold text-slate-900 mb-3 tracking-tight">방형구법 탐구</h1>
+            <p class="text-lg text-slate-500 font-medium">직접 움직이며 조사하는 식물 군집 시뮬레이션</p>
+        </div>
+        <button onclick="nextScreen(2)" class="w-full max-w-xs py-4 bg-green-600 hover:bg-green-700 text-white rounded-3xl text-xl font-bold transition-all shadow-xl shadow-green-100">
+            학습 시작하기
+        </button>
+    </section>
+
+    <!-- Screen 2: Concepts -->
+    <section id="screen-2" class="hidden-view min-h-screen p-6 max-w-2xl mx-auto overflow-y-auto">
+        <header class="mb-8 shrink-0">
+            <h2 class="text-2xl font-bold text-slate-900 mb-2 text-center">군집 분석 핵심 지표</h2>
+            <p class="text-slate-600 text-sm text-center">군집 내 생물 종의 영향력을 수치화하여 분석합니다.</p>
+        </header>
+
+        <div class="space-y-6 mb-10">
+            <div class="space-y-3">
+                <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest">1. 기본 조사 지표</h3>
+                <div class="grid gap-3">
+                    <div class="bg-white p-4 rounded-2xl border-l-4 border-red-500 shadow-sm">
+                        <h4 class="font-bold text-red-600 text-base mb-1">밀도 (Density)</h4>
+                        <p class="text-[12px] text-slate-600 leading-snug">특정 면적 내에 분포하는 종의 개체 수</p>
+                        <div class="formula-box">밀도 = 종의 총 개체 수 / 전체 조사 면적</div>
+                    </div>
+                    <div class="bg-white p-4 rounded-2xl border-l-4 border-blue-500 shadow-sm">
+                        <h4 class="font-bold text-blue-600 text-base mb-1">빈도 (Frequency)</h4>
+                        <p class="text-[12px] text-slate-600 leading-snug">전체 방형구 중 특정 종이 출현한 비율</p>
+                        <div class="formula-box">빈도 = 종이 출현한 방형구 수 / 전체 방형구 수</div>
+                    </div>
+                    <div class="bg-white p-4 rounded-2xl border-l-4 border-green-500 shadow-sm">
+                        <h4 class="font-bold text-green-600 text-base mb-1">피도 (Coverage)</h4>
+                        <p class="text-[12px] text-slate-600 leading-snug">특정 종이 지표면을 점유하고 있는 면적</p>
+                        <div class="formula-box">피도 = 종이 점유한 면적 / 전체 조사 면적</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="space-y-3 pt-2">
+                <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest">2. 상대 지표 (%)</h3>
+                <div class="bg-slate-100 p-5 rounded-3xl space-y-4">
+                    <p class="text-[12px] text-slate-600 text-center font-medium leading-relaxed">다른 종들과 비교하기 위해<br>각 지표의 총합에 대한 비율(%)을 구합니다.</p>
+                    <div class="grid grid-cols-1 gap-2 text-[10px]">
+                        <div class="flex justify-between bg-white px-3 py-2 rounded-xl border border-slate-200 items-center">
+                            <span class="font-bold text-red-600 shrink-0">상대밀도</span>
+                            <span class="text-slate-400 text-right">(해당 종 밀도 / 모든 종 밀도 합) × 100</span>
+                        </div>
+                        <div class="flex justify-between bg-white px-3 py-2 rounded-xl border border-slate-200 items-center">
+                            <span class="font-bold text-blue-600 shrink-0">상대빈도</span>
+                            <span class="text-slate-400 text-right">(해당 종 빈도 / 모든 종 빈도 합) × 100</span>
+                        </div>
+                        <div class="flex justify-between bg-white px-3 py-2 rounded-xl border border-slate-200 items-center">
+                            <span class="font-bold text-green-600 shrink-0">상대피도</span>
+                            <span class="text-slate-400 text-right">(해당 종 피도 / 모든 종 피도 합) × 100</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="space-y-3 pt-2">
+                <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest">3. 종합 분석</h3>
+                <div class="bg-slate-900 p-6 rounded-[2rem] shadow-xl text-white">
+                    <div class="flex items-center gap-2 mb-3">
+                        <div class="bg-yellow-400 w-2 h-2 rounded-full animate-pulse"></div>
+                        <h4 class="font-bold text-lg text-yellow-400">중요치 (Importance Value)</h4>
+                    </div>
+                    <p class="text-[12px] text-slate-300 leading-relaxed mb-4">
+                        상대밀도, 상대빈도, 상대피도 중 <span class="text-white font-bold italic">2가지 이상의 지표를 합산</span>하여 구합니다. 본 시뮬레이션은 3가지 상대지표의 합을 사용합니다.
+                    </p>
+                    <hr class="border-slate-700 my-4">
+                    <div class="flex items-center gap-2 mb-2 text-green-400">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                        </svg>
+                        <h4 class="font-bold text-lg">우점종 (Dominant Species)</h4>
+                    </div>
+                    <p class="text-[12px] text-slate-300 leading-relaxed">
+                        중요치가 가장 높은 종으로, 군집의 성격을 결정하는 대표 종입니다.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <button onclick="nextScreen(3)" class="w-full py-5 bg-green-600 text-white rounded-3xl text-xl font-black shadow-xl mb-6">
+            시뮬레이션 시작하기
+        </button>
+    </section>
+
+    <!-- Screen 3: Simulation -->
+    <section id="screen-3" class="hidden-view min-h-screen p-4 overflow-y-auto">
+        <div class="mb-4 flex justify-between items-end">
+            <div>
+                <h2 class="text-xl font-bold text-slate-900 leading-none mb-1 text-[18px]">실시간 군집 조사</h2>
+                <p class="text-[10px] text-slate-500 font-semibold uppercase tracking-tighter">Drag to move • Click to lock</p>
+            </div>
+            <button onclick="initField()" class="text-[11px] font-bold text-slate-500 bg-white px-4 py-2 rounded-2xl border border-slate-200 shadow-sm active:scale-95 transition-transform">식생 리셋</button>
+        </div>
+
+        <div id="field-container" class="relative">
+            <div id="field-plants"></div>
+            <div id="quadrat" onclick="toggleLock(event)">
+                <div id="lock-text" class="lock-indicator">탐색 중</div>
+                <script>
+                    for(let i=0; i<100; i++) document.write('<div class="quadrat-grid-line"></div>');
+                </script>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-4 gap-2 my-5">
+            <div class="bg-white p-2 rounded-2xl border border-slate-100 flex flex-col items-center shadow-sm">
+                <div id="icon-a" class="mb-1"></div>
+                <span class="text-[10px] font-bold text-slate-400 uppercase">종 A</span>
+            </div>
+            <div class="bg-white p-2 rounded-2xl border border-slate-100 flex flex-col items-center shadow-sm">
+                <div id="icon-b" class="mb-1"></div>
+                <span class="text-[10px] font-bold text-slate-400 uppercase">종 B</span>
+            </div>
+            <div class="bg-white p-2 rounded-2xl border border-slate-100 flex flex-col items-center shadow-sm">
+                <div id="icon-c" class="mb-1"></div>
+                <span class="text-[10px] font-bold text-slate-400 uppercase">종 C</span>
+            </div>
+            <div class="bg-white p-2 rounded-2xl border border-slate-100 flex flex-col items-center shadow-sm">
+                <div id="icon-d" class="mb-1"></div>
+                <span class="text-[10px] font-bold text-slate-400 uppercase">종 D</span>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden mb-4">
+            <div class="bg-slate-50 px-4 py-3 border-b border-slate-200 flex justify-between items-center">
+                <span class="text-xs font-bold text-slate-600">조사 결과 표</span>
+                <span class="text-[10px] text-blue-600 font-bold bg-blue-50 px-2 py-0.5 rounded-full">실시간 계산</span>
+            </div>
+            <table class="w-full text-[10px] text-center table-fixed border-collapse">
+                <thead>
+                    <tr class="text-slate-400 border-b">
+                        <th class="py-2 font-bold w-8">종</th>
+                        <th class="py-2 font-bold">밀도(상대)</th>
+                        <th class="py-2 font-bold">빈도(상대)</th>
+                        <th class="py-2 font-bold">피도(상대)</th>
+                        <th class="py-2 font-bold text-slate-800">중요치</th>
+                    </tr>
+                </thead>
+                <tbody id="result-body" class="divide-y divide-slate-50"></tbody>
+            </table>
+        </div>
+        
+        <div id="dominant-box" class="p-5 bg-slate-900 text-white rounded-[2rem] hidden shadow-xl mb-4">
+            <div class="flex justify-between items-center">
+                <div>
+                    <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1">Dominant Species</p>
+                    <div class="flex items-center gap-2">
+                        <div id="dom-icon"></div>
+                        <h4 class="text-2xl font-black text-green-400" id="dominant-name">-</h4>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <p class="text-[10px] text-slate-400 font-bold mb-1">IV SCORE</p>
+                    <p class="text-3xl font-black text-yellow-400" id="dominant-val">0.0</p>
+                </div>
+            </div>
+        </div>
+
+        <button onclick="nextScreen(1)" class="w-full my-8 text-slate-400 text-xs font-bold uppercase tracking-widest">처음으로 돌아가기</button>
+    </section>
+
+    <script>
+        const SPECIES = {
+            'A': { icon: (s=18) => `<svg viewBox="0 0 24 24" width="${s}" height="${s}"><circle cx="12" cy="12" r="9" fill="#ef4444"/></svg>` },
+            'B': { icon: (s=18) => `<svg viewBox="0 0 24 24" width="${s}" height="${s}"><path d="M12 3L22 21H2L12 3Z" fill="#3b82f6"/></svg>` },
+            'C': { icon: (s=18) => `<svg viewBox="0 0 24 24" width="${s}" height="${s}"><rect x="3" y="3" width="18" height="18" rx="2" fill="#22c55e"/></svg>` },
+            'D': { icon: (s=18) => `<svg viewBox="0 0 24 24" width="${s}" height="${s}"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" fill="#eab308"/></svg>` }
+        };
+
+        let plants = [];
+        const quadratSize = 130; 
+        let quadX = 50, quadY = 50;
+        let isLocked = false;
+
+        function nextScreen(num) {
+            document.querySelectorAll('section').forEach(s => s.classList.replace('active-view', 'hidden-view'));
+            const target = document.getElementById(`screen-${num}`);
+            target.classList.replace('hidden-view', 'active-view');
+            if(num === 3) initField();
+        }
+
+        function toggleLock(e) {
+            e.stopPropagation();
+            isLocked = !isLocked;
+            const q = document.getElementById('quadrat');
+            const t = document.getElementById('lock-text');
+            if (isLocked) {
+                q.classList.add('locked');
+                t.innerText = '고정됨';
+                t.style.background = '#3b82f6';
+            } else {
+                q.classList.remove('locked');
+                t.innerText = '탐색 중';
+                t.style.background = '#ef4444';
+            }
+        }
+
+        function initField() {
+            const container = document.getElementById('field-plants');
+            const field = document.getElementById('field-container');
+            container.innerHTML = '';
+            plants = [];
+            isLocked = false;
+            document.getElementById('quadrat').classList.remove('locked');
+            document.getElementById('lock-text').innerText = '탐색 중';
+            document.getElementById('lock-text').style.background = '#ef4444';
+
+            document.getElementById('icon-a').innerHTML = SPECIES.A.icon(24);
+            document.getElementById('icon-b').innerHTML = SPECIES.B.icon(24);
+            document.getElementById('icon-c').innerHTML = SPECIES.C.icon(24);
+            document.getElementById('icon-d').innerHTML = SPECIES.D.icon(24);
+
+            const w = field.clientWidth, h = field.clientHeight;
+            const types = ['A', 'B', 'C', 'D'];
+            for(let i=0; i<250; i++) {
+                const type = types[Math.floor(Math.random() * types.length)];
+                const x = Math.random() * w, y = Math.random() * h;
+                const el = document.createElement('div');
+                el.className = 'plant';
+                el.innerHTML = SPECIES[type].icon(Math.random() * 10 + 10);
+                el.style.left = x + 'px'; el.style.top = y + 'px';
+                container.appendChild(el);
+                plants.push({ x, y, type });
+            }
+            updateQuadratPos();
+        }
+
+        const field = document.getElementById('field-container');
+        const quad = document.getElementById('quadrat');
+
+        function moveHandler(e) {
+            if (isLocked) return;
+            const rect = field.getBoundingClientRect();
+            let clientX, clientY;
+            if (e.touches) { clientX = e.touches[0].clientX; clientY = e.touches[0].clientY; }
+            else { clientX = e.clientX; clientY = e.clientY; }
+            quadX = Math.max(0, Math.min(rect.width - quadratSize, clientX - rect.left - quadratSize/2));
+            quadY = Math.max(0, Math.min(rect.height - quadratSize, clientY - rect.top - quadratSize/2));
+            updateQuadratPos();
+        }
+
+        field.addEventListener('mousemove', moveHandler);
+        field.addEventListener('touchmove', (e) => { if (!isLocked) e.preventDefault(); moveHandler(e); }, { passive: false });
+
+        function updateQuadratPos() {
+            quad.style.left = quadX + 'px'; quad.style.top = quadY + 'px';
+            calculate();
+        }
+
+        function calculate() {
+            const result = { A: { count: 0, subQuadrats: new Set(), area: 0 }, B: { count: 0, subQuadrats: new Set(), area: 0 }, C: { count: 0, subQuadrats: new Set(), area: 0 }, D: { count: 0, subQuadrats: new Set(), area: 0 } };
+            const subStep = quadratSize / 10;
+            plants.forEach(p => {
+                if (p.x >= quadX && p.x <= quadX + quadratSize && p.y >= quadY && p.y <= quadY + quadratSize) {
+                    result[p.type].count++;
+                    const col = Math.floor((p.x - quadX) / subStep), row = Math.floor((p.y - quadY) / subStep);
+                    result[p.type].subQuadrats.add(Math.min(99, Math.max(0, row * 10 + col)));
+                    result[p.type].area += 0.8; 
+                }
+            });
+            const totalCount = Object.values(result).reduce((a, b) => a + b.count, 0) || 1;
+            const totalFreq = Object.values(result).reduce((a, b) => a + (b.subQuadrats.size / 100), 0) || 1;
+            const totalArea = Object.values(result).reduce((a, b) => a + b.area, 0) || 1;
+            const tbody = document.getElementById('result-body');
+            tbody.innerHTML = '';
+            let maxIV = -1, dominant = '';
+            ['A', 'B', 'C', 'D'].forEach(type => {
+                const res = result[type];
+                const relDensity = (res.count / totalCount) * 100, relFreq = ((res.subQuadrats.size / 100) / totalFreq) * 100, relCoverage = (res.area / totalArea) * 100;
+                const importanceValue = (relDensity + relFreq + relCoverage).toFixed(1);
+                if (parseFloat(importanceValue) > maxIV) { maxIV = parseFloat(importanceValue); dominant = type; }
+                const row = document.createElement('tr');
+                row.innerHTML = `<td class="py-3 font-black text-slate-800">${type}</td><td class="py-3 text-slate-500">${res.count}<br><span class="font-bold text-slate-800">${relDensity.toFixed(1)}%</span></td><td class="py-3 text-slate-500">${(res.subQuadrats.size/100).toFixed(2)}<br><span class="font-bold text-slate-800">${relFreq.toFixed(1)}%</span></td><td class="py-3 text-slate-500">${(res.area/100).toFixed(2)}<br><span class="font-bold text-slate-800">${relCoverage.toFixed(1)}%</span></td><td class="py-3 font-black text-blue-600 text-[12px]">${importanceValue}</td>`;
+                tbody.appendChild(row);
+            });
+            const domBox = document.getElementById('dominant-box');
+            if (maxIV > 0) {
+                domBox.classList.remove('hidden');
+                document.getElementById('dominant-name').innerText = `종 ${dominant}`;
+                document.getElementById('dominant-val').innerText = maxIV;
+                document.getElementById('dom-icon').innerHTML = SPECIES[dominant].icon(28);
+            } else { domBox.classList.add('hidden'); }
+        }
+    </script>
+</body>
+</html>
